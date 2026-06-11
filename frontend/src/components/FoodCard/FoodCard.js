@@ -11,21 +11,12 @@ export default function FoodCard({ food }) {
   if (food.kategori_diet)    tags.push(food.kategori_diet);
   if (food.tipe)             tags.push(food.tipe);
 
-  const emoji = food.tipe === 'Beverage' ? '🍹'
-    : food.tipe === 'Snack' ? '🍪'
-    : '🍛';
-
   return (
     <Link
       href={`/food/${food.id}`}
       id={`food-card-${food.id}`}
       className="food-card"
     >
-      {/* Thumbnail */}
-      <div className="food-card__thumb">
-        {emoji}
-      </div>
-
       {/* Content */}
       <div className="food-card__content">
         <p className="food-card__name">

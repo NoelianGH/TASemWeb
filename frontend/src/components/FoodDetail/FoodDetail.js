@@ -5,10 +5,6 @@ import Link from 'next/link';
  * Uses vanilla CSS classes defined in globals.css.
  */
 export default function FoodDetail({ food }) {
-  const emoji = food.tipe === 'Beverage' ? '🍹'
-    : food.tipe === 'Snack' ? '🍪'
-    : '🍛';
-
   const infoItems = [
     { label: 'Daerah',         value: food.daerah },
     { label: 'Budaya',         value: food.budaya },
@@ -32,9 +28,7 @@ export default function FoodDetail({ food }) {
 
           {/* Card header — gradient strip */}
           <div className="detail-card__header">
-            <div className="detail-card__emoji">
-              {emoji}
-            </div>
+
             <h2 className="detail-card__title">
               {food.nama}
             </h2>
