@@ -14,6 +14,7 @@ export default function HomePage() {
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [explanation, setExplanation] = useState('');
 
   const handleSearch = useCallback(async (e) => {
     e?.preventDefault();
@@ -22,11 +23,17 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     setHasSearched(true);
+    setExplanation('');
     try {
-      const res = await fetch(`/api/data/search/query?query=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) throw new Error('Pencarian gagal');
+      const res = await fetch('/api/query/nl2sparql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: trimmed })
+      });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Pencarian gagal');
       setFoods(data.results || []);
+      if (data.explanation) setExplanation(data.explanation);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,6 +132,11 @@ export default function HomePage() {
             </div>
           ) : (
             <>
+              {explanation && (
+                <div className="bg-green-50 p-3 rounded mb-4 text-sm text-green-800" style={{backgroundColor: '#eff6ff', color: '#1e40af', padding: '12px', borderRadius: '8px', marginBottom: '16px'}}>
+                  <strong>AI Memahami:</strong> {explanation}
+                </div>
+              )}
               <p className="results-count">{foods.length} hidangan ditemukan</p>
               <div className="results-list">
                 {foods.map((food) => <FoodCard key={food.id} food={food} />)}

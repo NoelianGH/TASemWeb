@@ -48,17 +48,52 @@ exports.translateAndExecute = async (req, res) => {
       return res.status(400).json({ error: 'Question is required' });
     }
     
-    // Translate NL to SPARQL
-    const translationResult = await nl2sparqlService.translate(question);
-    const { sparql, explanation } = translationResult;
+    let sparql, explanation, formattedResults = [];
+    let maxRetries = 3;
+    let attempt = 0;
+    let errorFeedback = null;
+    let success = false;
+    let lastError = null;
     
-    // Execute generated SPARQL
-    const results = await queryService.executeSparqlQuery(sparql);
+    while (attempt < maxRetries && !success) {
+      try {
+        const temperature = 0.1 + (attempt * 0.2); // Increase temp to 0.3 then 0.5
+        const translationResult = await nl2sparqlService.translate(question, errorFeedback, temperature);
+        sparql = translationResult.sparql;
+        explanation = translationResult.explanation;
+        
+        // Execute generated SPARQL
+        const rawResults = await queryService.executeSparqlQuery(sparql);
+        
+        if (rawResults && rawResults.length > 0) {
+          const sparqlClient = require('../services/sparqlClient');
+          formattedResults = rawResults.map(b => ({
+            id: b.dish ? sparqlClient.localName(sparqlClient.val(b, 'dish')) : 'unknown',
+            nama: sparqlClient.val(b, 'name') || sparqlClient.val(b, 'nama') || 'Tanpa Nama',
+            deskripsi: sparqlClient.val(b, 'description') || sparqlClient.val(b, 'desc'),
+            daerah: sparqlClient.val(b, 'region_name') || sparqlClient.val(b, 'regionName') || sparqlClient.val(b, 'region'),
+            tingkat_kepedasan: sparqlClient.val(b, 'spice_level') || sparqlClient.val(b, 'spice'),
+            kategori_diet: sparqlClient.val(b, 'diet_category') || sparqlClient.val(b, 'diet')
+          }));
+          success = true;
+        } else {
+          // No results found
+          errorFeedback = "The previous SPARQL query executed successfully but returned 0 results. Please double check the prefixes and try a broader search, relax some strict filters, or ensure you are using LCASE(STR(?var)) inside CONTAINS().";
+          attempt++;
+        }
+      } catch (err) {
+        // Syntax error or other execution error
+        errorFeedback = `The previous SPARQL query failed with error: ${err.message}. Please fix the syntax or logic.`;
+        lastError = err;
+        attempt++;
+      }
+    }
     
+    // If all attempts failed, we return the last parsed data or an empty result set
     res.json({ 
-      sparql,
-      explanation,
-      results 
+      sparql: sparql || "Query failed to generate",
+      explanation: explanation || (lastError ? `Error: ${lastError.message}` : "Tidak ditemukan kueri yang cocok."),
+      results: formattedResults 
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

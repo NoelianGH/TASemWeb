@@ -2,9 +2,9 @@ const axios = require('axios');
 
 class NL2SPARQLService {
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY;
-    this.modelName = process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
-    this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent`;
+    this.apiKey = process.env.GROQ_API_KEY;
+    this.modelName = process.env.GROQ_MODEL_NAME || 'llama-3.3-70b-versatile';
+    this.apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
     
     this.systemPrompt = `You are an expert in Semantic Web technologies, specifically RDF and SPARQL, and an expert in Indonesian culinary domain.
 Your task is to translate natural language questions about Indonesian food into executable SPARQL queries.
@@ -41,32 +41,34 @@ Always return a JSON object with two keys:
 1. "sparql": The valid SPARQL query string. Ensure it uses the correct prefixes.
 2. "explanation": A brief explanation of how the query works in Indonesian.
 
+IMPORTANT RULE: Always use LCASE(STR(?var)) when using CONTAINS() or "=" to filter string values. This ensures that string matching is fully case-insensitive (e.g. CONTAINS(LCASE(STR(?name)), "santan")).
+
 Examples:
 User: "Makanan dari Sumatera Barat"
 JSON:
 {
-  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\nSELECT ?dish ?name ?cooking_method\nWHERE {\n  ?dish a nusa:Dish ;\n        nusa:nama ?name ;\n        nusa:metode_memasak ?cooking_method ;\n        nusa:berasal_dari ?region .\n  ?region nusa:nama \\"Sumatera Barat\\" .\n}",
+  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nSELECT ?dish ?name ?cooking_method\\nWHERE {\\n  ?dish a ?type .\\n  ?type rdfs:subClassOf* nusa:Dish .\\n  ?dish nusa:nama ?name ;\\n        nusa:metode_memasak ?cooking_method ;\\n        nusa:berasal_dari ?region .\\n  ?region nusa:nama \\"Sumatera Barat\\" .\\n}",
   "explanation": "Query ini mencari hidangan yang berasal dari region dengan nama 'Sumatera Barat'."
 }
 
 User: "Makanan apa yang tidak pedas?"
 JSON:
 {
-  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\nSELECT ?dish ?name ?description\nWHERE {\n  ?dish a nusa:Dish ;\n        nusa:nama ?name ;\n        nusa:deskripsi ?description ;\n        nusa:tingkat_kepedasan ?spice_level .\n  FILTER (?spice_level = \\"Tidak Pedas\\")\n}",
+  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nSELECT ?dish ?name ?description ?spice_level\\nWHERE {\\n  ?dish a ?type .\\n  ?type rdfs:subClassOf* nusa:Dish .\\n  ?dish nusa:nama ?name ;\\n        nusa:deskripsi ?description ;\\n        nusa:tingkat_kepedasan ?spice_level .\\n  FILTER (LCASE(STR(?spice_level)) = \\"tidak pedas\\")\\n}",
   "explanation": "Query ini mencari hidangan dan memfilter yang tingkat kepedasannya 'Tidak Pedas'."
 }
 
 User: "Makanan vegetarian dari Jawa"
 JSON:
 {
-  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\nSELECT ?dish ?name ?region_name\nWHERE {\n  ?dish a nusa:Dish ;\n        nusa:nama ?name ;\n        nusa:kategori_diet ?diet ;\n        nusa:berasal_dari ?region .\n  ?region nusa:nama ?region_name .\n  FILTER (CONTAINS(?diet, \\"Vegetarian\\") && CONTAINS(?region_name, \\"Jawa\\"))\n}",
+  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nSELECT ?dish ?name ?region_name\\nWHERE {\\n  ?dish a ?type .\\n  ?type rdfs:subClassOf* nusa:Dish .\\n  ?dish nusa:nama ?name ;\\n        nusa:kategori_diet ?diet ;\\n        nusa:berasal_dari ?region .\\n  ?region nusa:nama ?region_name .\\n  FILTER (CONTAINS(LCASE(STR(?diet)), \\"vegetarian\\") && CONTAINS(LCASE(STR(?region_name)), \\"jawa\\"))\\n}",
   "explanation": "Query ini mencari hidangan dengan kategori diet mengandung 'Vegetarian' dan dari region yang namanya mengandung 'Jawa'."
 }
 
 User: "Hidangan yang memakai santan dan daging"
 JSON:
 {
-  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\nSELECT ?dish ?name\nWHERE {\n  ?dish a nusa:Dish ;\n        nusa:nama ?name ;\n        nusa:mengandung ?ing1 ;\n        nusa:mengandung ?ing2 .\n  ?ing1 nusa:nama ?ing1_name .\n  ?ing2 nusa:nama ?ing2_name .\n  FILTER (CONTAINS(?ing1_name, \\"Santan\\") && CONTAINS(?ing2_name, \\"Daging\\"))\n}",
+  "sparql": "PREFIX nusa: <http://nusarasa.id/ontology#>\\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\\nSELECT ?dish ?name\\nWHERE {\\n  ?dish a ?type .\\n  ?type rdfs:subClassOf* nusa:Dish .\\n  ?dish nusa:nama ?name ;\\n        nusa:mengandung ?ing1 ;\\n        nusa:mengandung ?ing2 .\\n  ?ing1 nusa:nama ?ing1_name .\\n  ?ing2 nusa:nama ?ing2_name .\\n  FILTER (CONTAINS(LCASE(STR(?ing1_name)), \\"santan\\") && CONTAINS(LCASE(STR(?ing2_name)), \\"daging\\"))\\n}",
   "explanation": "Query ini mencari hidangan yang memiliki dua bahan berbeda dimana namanya mengandung 'Santan' dan 'Daging'."
 }
 
@@ -75,35 +77,37 @@ CRITICAL: The JSON output must be valid. If you include newlines in the SPARQL q
 `;
   }
 
-  async translate(naturalLanguageQuery) {
+  async translate(naturalLanguageQuery, errorFeedback = null, temperature = 0.1) {
     if (!this.apiKey) {
-      throw new Error('GEMINI_API_KEY is not defined in environment variables.');
+      throw new Error('GROQ_API_KEY is not defined in environment variables.');
     }
 
     try {
+      let promptContent = `User: "${naturalLanguageQuery}"\n`;
+      if (errorFeedback) {
+        promptContent += `SYSTEM FEEDBACK FROM PREVIOUS ATTEMPT: ${errorFeedback}\nPlease fix the query and ensure it returns results.\n`;
+      }
+      promptContent += "JSON:";
+
       const response = await axios.post(
-        `${this.apiUrl}?key=${this.apiKey}`,
+        this.apiUrl,
         {
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${this.systemPrompt}\n\nUser: "${naturalLanguageQuery}"\nJSON:` }]
-            }
+          model: this.modelName,
+          messages: [
+            { role: 'system', content: this.systemPrompt },
+            { role: 'user', content: promptContent }
           ],
-          generationConfig: {
-            temperature: 0.1, // Low temperature for more deterministic output
-            topK: 1,
-            topP: 1,
-          }
+          temperature: temperature
         },
         {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
           }
         }
       );
 
-      const responseText = response.data.candidates[0].content.parts[0].text;
+      const responseText = response.data.choices[0].message.content;
       
       // Clean up markdown if the model hallucinates it despite instructions
       let cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();

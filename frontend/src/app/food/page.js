@@ -15,6 +15,7 @@ export default function BrowsePage() {
   const [query, setQuery] = useState('');
   const [activeTags, setActiveTags] = useState([]);
   const [allTags, setAllTags] = useState([]);
+  const [explanation, setExplanation] = useState('');
 
   useEffect(() => { fetchFoods(); }, []);
 
@@ -53,10 +54,16 @@ export default function BrowsePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/data/search/query?query=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) throw new Error('Pencarian gagal');
+      const res = await fetch('/api/query/nl2sparql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: trimmed })
+      });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Pencarian gagal');
       setFoods(data.results || []);
+      if (data.explanation) setExplanation(data.explanation);
+      else setExplanation('');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -152,11 +159,18 @@ export default function BrowsePage() {
           </div>
         )}
 
-        {/* Result count */}
+        {/* Explanation & Result count */}
         {!loading && (
-          <p className="browse-count">
-            {filteredFoods.length} hidangan ditemukan
-          </p>
+          <div className="mt-4">
+            {explanation && (
+              <div className="bg-green-50 p-3 rounded mb-4 text-sm text-green-800" style={{backgroundColor: '#eff6ff', color: '#1e40af', padding: '12px', borderRadius: '8px', marginBottom: '16px', marginTop: '16px'}}>
+                <strong>AI Memahami:</strong> {explanation}
+              </div>
+            )}
+            <p className="browse-count">
+              {filteredFoods.length} hidangan ditemukan
+            </p>
+          </div>
         )}
       </div>
 
