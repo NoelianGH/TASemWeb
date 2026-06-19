@@ -184,7 +184,7 @@ export default function BrowsePage() {
         ) : error ? (
           <div className="state-center">
             <p className="error-text">❌ {error}</p>
-            <p className="error-hint">Pastikan backend berjalan di localhost:5000</p>
+            <p className="error-hint">Pastikan backend beroperasi dan terhubung dengan benar.</p>
           </div>
         ) : filteredFoods.length === 0 ? (
           <div className="state-center">
