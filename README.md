@@ -26,6 +26,29 @@ Indonesia memiliki lebih dari **5.350 jenis hidangan tradisional** yang tersebar
 
 ---
 
+## 📸 Panduan Penggunaan (UI)
+
+Aplikasi NusaRasa dirancang agar interaktif dan mudah digunakan oleh siapa saja. Berikut adalah alur pemakaian utamanya:
+
+### 1. Halaman Beranda
+![Beranda NusaRasa](./UI-Display/Homepage.png)
+Di halaman awal, Anda akan disambut dengan antarmuka pencarian pintar dan modern. Anda dapat langsung melihat sekilas keindahan warisan kuliner yang tersedia.
+
+### 2. Melakukan Pencarian Bahasa Alami
+![Pencarian Pintar](./UI-Display/SearchBar.png)
+Cukup ketikkan keinginan Anda seperti Anda sedang berbicara dengan seseorang. 
+Contoh: *"Cari hidangan dari Jawa Barat yang memiliki tingkat kepedasan sedang dan cocok untuk vegetarian"*. Model AI (LLM) di balik layar akan memproses maksud Anda secara semantik.
+
+### 3. Menjelajahi Hasil Pencarian
+![Hasil Pencarian](./UI-Display/FindAll.png)
+Sistem akan menampilkan hidangan-hidangan yang cocok dengan konteks pencarian Anda dalam bentuk kartu (*card*) yang rapi. Di bagian atas layar, Anda juga dapat melihat kotak penjelasan transparan mengenai bagaimana AI menerjemahkan pertanyaan bahasa alami Anda ke dalam kueri graf SPARQL.
+
+### 4. Detail Informasi Kuliner
+![Detail Hidangan](./UI-Display/Info.png)
+Jika Anda mengeklik salah satu kartu hidangan, Anda akan dibawa ke halaman detail yang membongkar seluruh *Knowledge Graph* dari hidangan tersebut. Anda bisa melihat bahan-bahan (Ingredient), tingkat kepedasan, asal wilayah (Region), dan budaya (Culture) yang menyertainya secara terstruktur.
+
+---
+
 ## Arsitektur Sistem
 
 ```text
