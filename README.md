@@ -18,35 +18,35 @@ Indonesia memiliki lebih dari **5.350 jenis hidangan tradisional** yang tersebar
 
 ## Fitur Utama
 
-- **Pencarian Bahasa Alami** — Ketik pertanyaan seperti berbicara biasa; LLM akan menerjemahkannya menjadi SPARQL query secara otomatis.
-- **Knowledge Graph Interaktif** — Visualisasi subgraf yang menampilkan relasi semantik antar entitas kuliner.
+- **Pencarian Bahasa Alami** — Ketik pertanyaan seperti berbicara biasa; LLM akan menerjemahkannya menjadi SPARQL query secara otomatis dengan fitur *Auto-Retry & Self-Correction* untuk memastikan hasil yang akurat.
+- **Knowledge Graph Interaktif** — Visualisasi relasi semantik antar entitas kuliner secara komprehensif.
 - **Kartu Rekomendasi Hidangan** — Tampilkan informasi lengkap: daerah asal, bahan, budaya, konteks penyajian, dan tingkat kepedasan.
-- **Transparansi Query** — SPARQL query yang dihasilkan ditampilkan secara eksplisit untuk keperluan edukasi dan debugging.
+- **Transparansi Query** — Kueri SPARQL yang dihasilkan beserta penjelasan cara kerjanya ditampilkan secara eksplisit kepada pengguna untuk keperluan edukasi.
 - **Ontologi Terstruktur** — Dibangun dengan OWL 2 menggunakan Protégé, divalidasi oleh HermiT Reasoner.
 
 ---
 
 ## Arsitektur Sistem
 
-```
+```text
 Pengguna (Bahasa Alami)
         │
         ▼
 ┌──────────────────┐
-│   Web Frontend   │  HTML / CSS / JavaScript
+│   Web Frontend   │  Next.js / React / Tailwind CSS
 │  (Antarmuka Web) │
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────┐
-│  Python Flask    │  Backend & NL2SPARQL Pipeline
-│    Backend       │◄──── LLM API (Claude / GPT-4)
-└────────┬─────────┘      + Few-shot Prompting + RAG
+│ Express Backend  │  Node.js API Gateway & NL2SPARQL
+│                  │◄──── Groq API (Llama 3.3 70B)
+└────────┬─────────┘      + Few-shot Prompting + Auto-Retry
          │
          ▼
 ┌──────────────────┐
-│  Apache Jena     │  SPARQL 1.1 Endpoint
-│    Fuseki        │  Dataset: nusarasa
+│   SPARQL Server  │  Python + RDFLib (Port 3030)
+│   (Standalone)   │  Dataset: nusarasa_data.ttl
 └────────┬─────────┘
          │
          ▼
@@ -67,8 +67,8 @@ Ontologi dirancang di **Protégé 5.x** dengan komponen berikut:
 | Kelas | Deskripsi |
 |---|---|
 | `nusa:Dish` | Representasi hidangan dengan metadata lengkap |
-| `nusa:Region` | Wilayah geografis asal hidangan (dengan koordinat geo) |
-| `nusa:Ingredient` | Bahan penyusun hidangan (wajib / opsional) |
+| `nusa:Region` | Wilayah geografis asal hidangan |
+| `nusa:Ingredient` | Bahan penyusun hidangan |
 | `nusa:Culture` | Kelompok budaya atau suku yang berafiliasi |
 | `nusa:Event` | Peristiwa / konteks sosial penyajian hidangan |
 
@@ -94,87 +94,87 @@ Ontologi dirancang di **Protégé 5.x** dengan komponen berikut:
 | Komponen | Teknologi |
 |---|---|
 | Ontologi | Protégé 5.x (OWL 2) |
-| RDF / Triple Store | RDFLib (Python) / Apache Jena Fuseki |
-| SPARQL Endpoint | Apache Jena Fuseki — SPARQL 1.1 |
-| LLM / NL2SPARQL | Claude API / GPT-4 API (few-shot + RAG) |
-| Web Backend | Python Flask |
-| Web Frontend | HTML / CSS / JavaScript |
+| RDF / Triple Store | RDFLib (Python) SPARQL Server |
+| LLM / NL2SPARQL | Groq API (Llama-3.3-70b-versatile) |
+| Web Backend | Node.js / Express |
+| Web Frontend | Next.js / React |
 | Dataset | CSV → RDF Turtle (`.ttl`) |
-| Validasi Ontologi | HermiT Reasoner (via Protégé) |
 
 ---
 
-## Cara Menjalankan
+## Cara Menjalankan (Development)
+
+Proyek ini terdiri dari dua bagian utama: `backend` dan `frontend`. 
 
 ### Prasyarat
+- **Node.js** (v18+)
+- **Python** (3.10+)
+- **Groq API Key** (Dapatkan di [Groq Console](https://console.groq.com/keys))
 
-- Python 3.10+
-- Java Runtime Environment (untuk Apache Jena Fuseki)
-- Protégé 5.x (untuk pengeditan ontologi)
-
-### Instalasi
-
+### 1. Menyiapkan Backend (Express & SPARQL)
+Buka terminal baru, lalu ikuti langkah berikut:
 ```bash
-# 1. Clone repositori
-git clone https://github.com/<username>/nusarasa.git
-cd nusarasa
+cd backend
 
-# 2. Buat virtual environment dan install dependensi
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Install dependencies Node.js
+npm install
+
+# Install dependencies Python (untuk SPARQL Server)
 pip install -r requirements.txt
 
-# 3. Jalankan Apache Jena Fuseki
-cd fuseki
-./fuseki-server --update --mem /nusarasa
-
-# 4. Load dataset RDF ke Fuseki
-# Akses http://localhost:3030 dan upload file data/nusarasa.ttl
-
-# 5. Set API key LLM
-export LLM_API_KEY="your-api-key-here"
-
-# 6. Jalankan Flask backend
-python app.py
+# Buat file konfigurasi .env dari .env.example
+cp .env.example .env
+```
+Buka file `backend/.env` dan masukkan API Key Groq Anda:
+```env
+PORT=5000
+GROQ_API_KEY=gsk_kunci_api_anda_di_sini
+GROQ_MODEL_NAME=llama-3.3-70b-versatile
 ```
 
-Aplikasi berjalan di `http://localhost:5000`
+Setelah itu, jalankan kedua layanan backend ini secara bersamaan (disarankan menggunakan 2 terminal atau mode *split terminal*):
+```bash
+# Di Terminal 1: Jalankan SPARQL Server (berjalan di Port 3030)
+python sparql_server.py
+
+# Di Terminal 2: Jalankan Express API Server (berjalan di Port 5000)
+npm run dev
+```
+
+### 2. Menyiapkan Frontend (Next.js)
+Buka terminal baru lainnya, navigasi ke folder frontend, lalu:
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Jalankan server frontend (berjalan di Port 3000)
+npm run dev
+```
+
+Aplikasi siap digunakan dan dapat diakses melalui browser Anda di: **http://localhost:3000**
 
 ---
 
-## Struktur Direktori
+## Struktur Direktori Utama
 
-```
+```text
 nusarasa/
-├── ontology/
-│   ├── nusarasa.owl          # File ontologi OWL 2
-│   └── nusarasa.ttl          # Knowledge Graph (RDF Turtle)
-├── data/
-│   └── kuliner_dataset.csv   # Dataset sumber
-├── scripts/
-│   ├── csv_to_rdf.py         # Konversi CSV → RDF Turtle
-│   └── sparql_queries.py     # Contoh SPARQL queries
-├── nl2sparql/
-│   ├── pipeline.py           # Modul NL2SPARQL
-│   └── few_shot_examples.json# Contoh pasangan (NL → SPARQL)
-├── app/
-│   ├── app.py                # Flask backend
-│   ├── templates/            # HTML templates
-│   └── static/               # CSS / JS
-├── requirements.txt
-└── README.md
+├── backend/
+│   ├── controllers/      # Logika API Express (Query, Data, Ontology)
+│   ├── services/         # Layanan eksternal (NL2SPARQL, komunikasi RDFLib)
+│   ├── data/             # File sumber data (.csv dan .ttl)
+│   ├── ontology/         # File definisi dan arsitektur ontologi (.ttl)
+│   ├── scripts/          # Skrip utilitas bantu (misal: pengujian LLM)
+│   ├── server.js         # Entry point utama Node.js Express
+│   └── sparql_server.py  # Server SPARQL mandiri berbasis Python & RDFLib
+├── frontend/
+│   ├── src/app/          # Halaman User Interface Next.js (App Router)
+│   ├── src/components/   # Komponen UI React
+│   └── public/           # Aset statis dan ikon
+└── README.md             # Dokumentasi utama proyek
 ```
-
----
-
-## Target & Cakupan Dataset
-
-| Metrik | Target |
-|---|---|
-| Jumlah hidangan | ≥ 87 hidangan |
-| Jumlah bahan | ≥ 214 bahan |
-| Total triplet RDF | ≥ 1.200 triplet |
-| Akurasi NL2SPARQL | ≥ 85% pada query benchmark |
 
 ---
 
@@ -196,8 +196,4 @@ Program Studi S-1 Teknik Informatika · Semester Genap 2025/2026
 - Antoniou, G., & Van Harmelen, F. (2004). *A Semantic Web Primer*. MIT Press.
 - Berners-Lee, T., Hendler, J., & Lassila, O. (2001). The Semantic Web. *Scientific American*, 284(5), 34–43.
 - Hitzler, P. (2021). A Review of the Semantic Web Field. *Communications of the ACM*, 64(2), 76–83.
-- [Apache Jena Fuseki Documentation](https://jena.apache.org/documentation/fuseki2/)
 - [RDFLib Documentation](https://rdflib.readthedocs.io/)
-
----
-

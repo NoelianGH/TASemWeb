@@ -1,181 +1,108 @@
 # TASemWeb Backend API
 
-Express.js backend untuk semantic web dengan support RDF dan ontology.
+Backend Express.js untuk sistem Semantic Web NusaRasa. Backend ini bertindak sebagai API Gateway yang menghubungkan antarmuka pengguna (Frontend) dengan mesin logika Semantic Web (SPARQL Server) dan Model Bahasa Besar (LLM).
+
+## 🌟 Fitur Utama
+
+- **NL2SPARQL Pipeline:** Mengonversi pertanyaan bahasa alami dari pengguna menjadi kueri SPARQL secara *real-time* menggunakan model LLM Groq (`llama-3.3-70b-versatile`).
+- **Auto-Retry & Self-Correction:** Jika LLM menghasilkan kueri yang terlalu kaku atau salah secara sintaks sehingga tidak ditemukan data, sistem akan secara otomatis menginstruksikan ulang LLM dengan umpan balik (*feedback*) hingga maksimal 3 kali percobaan secara instan.
+- **Case-Insensitive Searching:** LLM diatur untuk melakukan pencarian RDF menggunakan `LCASE(STR())` yang tangguh terhadap kesalahan pengetikan huruf kapital.
+- **Data & Ontology Gateway:** Menyediakan endpoint RESTful untuk membaca struktur ontologi dan data hidangan.
 
 ## 📁 Struktur Project
 
-```
+```text
 backend/
-├── controllers/          # Business logic untuk setiap endpoint
-│   ├── ontologyController.js
+├── controllers/          # Logika bisnis untuk setiap endpoint API
 │   ├── dataController.js
-│   └── queryController.js
-├── routes/              # API route definitions
-│   ├── ontology.js
+│   ├── ontologyController.js
+│   └── queryController.js     # Menangani routing NL2SPARQL & Retry Loop
+├── routes/               # Definisi Route API Express
 │   ├── data.js
+│   ├── ontology.js
 │   └── query.js
-├── services/            # Service layer untuk data processing
-│   ├── ontologyService.js
+├── services/             # Layer komunikasi dengan layanan eksternal
 │   ├── dataService.js
-│   └── queryService.js
-├── data/                # CSV data files
-│   └── dataset_kuliner_indonesia.csv
-├── ontology/            # RDF/TTL ontology files
+│   ├── nl2sparqlService.js    # Koneksi API LLM Groq (Prompt & API Call)
+│   ├── ontologyService.js
+│   ├── queryService.js
+│   └── sparqlClient.js        # Klien ke Python SPARQL Server
+├── data/                 # Data RDF Graph
+│   └── nusarasa_data.ttl
+├── ontology/             # Definisi Arsitektur Ontology
 │   └── nusarasa_ontology.ttl
-├── server.js            # Main server entry point
-├── package.json         # Dependencies
-├── .env                 # Environment variables
-└── .gitignore          # Git ignore file
+├── scripts/              # Skrip untuk pengujian atau utilisasi
+│   ├── csv_to_rdf.py
+│   └── test_nl2sparql.js      # Alat tes LLM NL2SPARQL via CLI
+├── sparql_server.py      # Server mandiri RDFLib untuk eksekusi kueri
+├── server.js             # Entry point utama Express
+└── package.json          # Node.js dependencies
 ```
 
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
+Anda memerlukan dependensi Node.js dan Python:
 ```bash
-cd backend
+# Dependensi Express
 npm install
+
+# Dependensi SPARQL Server
+pip install -r requirements.txt
 ```
 
 ### 2. Setup Environment Variables
-File `.env` sudah tersedia dengan konfigurasi default:
+Buat file `.env` (atau _copy_ dari `.env.example`) dan pastikan konfigurasi diatur seperti ini:
 ```env
 PORT=5000
-NODE_ENV=development
-ONTOLOGY_PATH=./ontology/nusarasa_ontology.ttl
-DATA_PATH=./data/dataset_kuliner_indonesia.csv
+GROQ_API_KEY=gsk_kunci_groq_anda_di_sini
+GROQ_MODEL_NAME=llama-3.3-70b-versatile
 ```
+> **Catatan:** Anda bisa mendapatkan `GROQ_API_KEY` secara gratis di [Groq Console](https://console.groq.com/keys).
 
-### 3. Run Server
-Development mode dengan auto-reload:
-```bash
-npm run dev
-```
+### 3. Jalankan Layanan Backend
+Backend ini membutuhkan **dua** server yang berjalan bersamaan:
 
-Atau production mode:
-```bash
-npm start
-```
+1. **Jalankan Python SPARQL Server (Port 3030)**
+   Buka terminal pertama di dalam folder `backend`:
+   ```bash
+   python sparql_server.py
+   ```
+   *(Server ini mengeksekusi file `.ttl` menggunakan mesin RDFLib).*
 
-Server akan berjalan di `http://localhost:5000`
+2. **Jalankan Express API Gateway (Port 5000)**
+   Buka terminal kedua di dalam folder `backend`:
+   ```bash
+   npm run dev
+   ```
 
-## 📚 API Endpoints
+Server API siap menerima _request_ di `http://localhost:5000`.
 
-### Health Check
-```
-GET /api/health
-```
-Response:
-```json
-{
-  "status": "OK",
-  "message": "TASemWeb Backend is running",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
+## 📚 API Endpoints Terkini
 
-### Ontology API (`/api/ontology`)
-- `GET /api/ontology/info` - Informasi ontology
-- `GET /api/ontology/classes` - Daftar semua class
-- `GET /api/ontology/properties` - Daftar semua property
-- `GET /api/ontology/classes/:name` - Detail class tertentu
-- `GET /api/ontology/properties/:name` - Detail property tertentu
+### NL2SPARQL Query API (`/api/query`)
+- **`POST /api/query/nl2sparql`** - (Endpoint Utama)
+  - **Fungsi:** Menerima pertanyaan bahasa alami, diubah jadi SPARQL oleh LLM, dan langsung dieksekusi.
+  - **Body:** `{ "question": "Makanan yang mengandung santan dan daging sapi" }`
+  - **Response:** Akan mengembalikan Kueri SPARQL mentah, Penjelasan Kueri, dan Hasil eksekusi berformat JSON.
 
-### Data API (`/api/data`)
-- `GET /api/data` - Ambil semua data (dengan pagination)
-  - Query params: `page=1&limit=20`
-- `GET /api/data/:id` - Ambil data by ID
-- `GET /api/data/search/query?query=keyword` - Search data
-- `GET /api/data/stats/overview` - Statistik data
+### SPARQL Biasa (`/api/query`)
+- `POST /api/query/sparql` - Menjalankan kueri SPARQL manual secara langsung.
+  - Body: `{ "query": "SELECT * WHERE { ... }" }`
+- `POST /api/query/semantic-search` - Pencarian semantik sederhana menggunakan keyword.
 
-### Query API (`/api/query`)
-- `POST /api/query/sparql` - Execute SPARQL query
-  - Body: `{ "query": "SELECT ..." }`
-- `POST /api/query/semantic-search` - Semantic search
-  - Body: `{ "keyword": "...", "ontologyClass": "..." }`
-- `GET /api/query/related/:resource` - Get related resources
+### Ontology & Data API
+- `GET /api/ontology/classes` - Daftar semua OWL class di ontologi
+- `GET /api/data` - Ambil data semua instansiasi hidangan (terbatas)
+- `GET /api/data/:id` - Detail spesifik hidangan dari ID.
 
-## 📦 Dependencies
+## 📦 Tech Stack & Dependencies Utama
 
-- **express** - Web framework
-- **cors** - CORS middleware
-- **dotenv** - Environment variable management
-- **csv-parser** - CSV file parsing
-- **express-validator** - Input validation
-- **helmet** - Security headers
-- **morgan** - HTTP logging
-- **rdflib** - RDF/Semantic web (siap untuk integration)
-- **axios** - HTTP client
-
-## 🔧 Development
-
-### Nodemon untuk auto-reload
-```bash
-npm run dev
-```
-
-### Mengakses API
-Gunakan tools seperti Postman, Thunder Client, atau curl:
-```bash
-# Test health endpoint
-curl http://localhost:5000/api/health
-
-# Get ontology info
-curl http://localhost:5000/api/ontology/info
-
-# Get semua data
-curl http://localhost:5000/api/data?page=1&limit=10
-```
-
-## 📝 Customization
-
-### Menambah Route Baru
-1. Buat function baru di `controllers/`
-2. Buat service di `services/` jika perlu
-3. Daftarkan route di file yang sesuai di `routes/`
-4. Import route di `server.js`
-
-### Mengintegrasikan SPARQL
-Untuk menggunakan SPARQL endpoint yang sebenarnya, gunakan library seperti:
-- `sparql-http-client`
-- `rdf-store`
-- Atau connect ke endpoint eksternal
-
-## 🔐 Security
-
-Backend sudah dilengkapi dengan:
-- CORS protection
-- Helmet untuk security headers
-- Input validation ready (express-validator)
-- Error handling middleware
-
-## 📖 Next Steps
-
-1. **Integrasikan SPARQL**: Setup SPARQL endpoint untuk query semantic web yang lebih advanced
-2. **RDF Parsing**: Parse TTL/RDF files untuk extract classes dan properties
-3. **Database**: Tambahkan database (MongoDB/PostgreSQL) untuk persistent storage
-4. **Authentication**: Setup JWT/OAuth untuk API security
-5. **Frontend Connection**: Connect dengan frontend untuk data visualization
-
-## 🐛 Troubleshooting
-
-**Port sudah digunakan?**
-```bash
-# Change PORT in .env
-PORT=3001
-```
-
-**CSV tidak ditemukan?**
-```bash
-# Check DATA_PATH in .env
-# Pastikan file ada di path yang benar
-```
-
-**Module tidak ditemukan?**
-```bash
-# Reinstall dependencies
-npm install
-```
+- **Node.js/Express.js:** Server API Gateway.
+- **Groq SDK/Axios:** Koneksi API inferensi LLM ultra-cepat (LPU).
+- **Python Flask & RDFLib:** Server khusus (*SPARQL endpoint*) untuk grafik memori.
+- **Nodemon:** *Auto-reload* server saat mode pengembangan.
 
 ---
-
-Happy coding! 🎉
+**Troubleshooting:**
+Jika API merespons dengan *"Model decommissioned"*, pastikan Anda sudah mematikan (`Ctrl+C`) terminal Express dan menyalakannya lagi dengan `npm run dev` untuk membaca konfigurasi `.env` terbaru.
